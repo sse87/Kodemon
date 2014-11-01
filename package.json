@@ -1,0 +1,22 @@
+{
+  "name": "kodemon",
+  "version": "0.0.0",
+  "description": "Assignment 3 in T-514-VEFT Autumn 2014",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "kodemon",
+    "assignment",
+    "ru"
+  ],
+  "author": "Sigurdur S. Eiriksson and Sigurbjorn Kristjansson",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "express": "~4.10.1",
+    "mongoose": "~3.8.18",
+    "body-parser": "~1.9.2",
+    "elasticsearch": "~2.4.3"
+  }
+}
