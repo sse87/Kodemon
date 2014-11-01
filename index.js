@@ -2,7 +2,8 @@ var express = require('express'),
 	Exec = require('./models').Exec,
 	mongoose = require('mongoose'),
 	bodyParser = require('body-parser'),
-	elasticsearch = require('elasticsearch');
+	elasticsearch = require('elasticsearch'),
+	dgram = require('dgram');
 
 
 var client = new elasticsearch.Client({
@@ -25,6 +26,36 @@ connectMongo();
 
 
 
+// UDP packet catch
+var server = dgram.createSocket('udp4');
+server.on('message', function (msg, rinfo) {
+	// Form the new data with correct names in object
+	var json = JSON.parse(msg);
+	var newExec = {
+		token: json.token,
+		key: json.key,
+		executionTime: json.execution_time,// <-- all because of this guy
+		timestamp: json.timestamp
+	};
+	// Save object in mongodb
+	var exec = new Exec(newExec);
+	exec.save(function (err, newExec) {
+		if (err) {
+			console.log('503: Unable to insert execution' + '\n');
+		}
+		else {
+			console.log('201: POST /api/execs');
+			//res.status(201).json(newExec);
+		}
+	});
+});
+server.on('listening', function () {
+	console.log('Kodemon server listening on ' + server.address().address + ':' + server.address().port);
+});
+server.bind(4000);
+
+
+
 
 
 // get all data
@@ -35,6 +66,7 @@ app.get('/api/execs', function (req, res) {
 			res.status(503).send('Unable to fetch records' + '\n');
 		}
 		else {
+			console.log('GET /api/execs');
 			res.json(execs);
 		}
 	});
@@ -49,6 +81,7 @@ app.post('/api/execs', function (req, res) {
 			res.status(503).send('Unable to insert execution' + '\n');
 		}
 		else {
+			console.log('POST /api/execs');
 			res.status(201).json(newExec);
 		}
 	});
@@ -66,6 +99,7 @@ app.get('/api/execs/token/:token', function (req, res) {
 			res.status(404).send('No executions found with token ' + token + '\n');
 		}
 		else {
+			console.log('GET /api/execs/token/' + token);
 			res.json(execs);
 		}
 	});
@@ -76,7 +110,7 @@ app.post('/api/execs/search/', function (req, res) {
 	var searchString = req.body.search || '';
 	// making elasticsearch query
 	client.search({
-		index: "execs",
+		index: 'execs',
 		body: {
 			query: {
 				match: {
@@ -112,18 +146,6 @@ app.post('/api/execs/search/', function (req, res) {
 });
 
 
-
-
-
-app.get('/api/blog/:slug', function (req, res) {
-	var slug = req.params.slug;
-	res.send('Viewing blog by slug: ' + slug + '\n');
-});
-
-app.post('/api/search', function (req, res) {
-	var q = req.params.q;
-	res.send('You are searching: ' + q + '\n');
-});
 
 app.listen(4000, function () {
 	console.log('Server is ready!');
