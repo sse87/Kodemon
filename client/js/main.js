@@ -30,11 +30,24 @@ $(document).ready(function () {
 		
 		var _this = $(this);
 		
-		var token = window.location.search || '';
-		if (token !== '' && token.indexOf('&') === -1) {
-			token = token.replace('?token=', '');
+		var token = '';
+		var key = '';
+		var param = window.location.search || '';
+		if (param !== '' && param.indexOf('&') !== -1) {
+			param = param.replace('?', '');
+			var arrParam = param.split('&');
+			for (var i = 0; i < arrParam.length; i++) {
+				if (arrParam[i].indexOf('token=') !== -1) {
+					token = arrParam[i].replace('token=', '');
+				}
+				if (arrParam[i].indexOf('key=') !== -1) {
+					key = arrParam[i].replace('key=', '');
+				}
+			}
+		} else if (param !== '' && param.indexOf('&') === -1) {
+			token = param.replace('?token=', '');
 		} else {
-			token = '';
+			param = '';
 		}
 		
 		if (token !== '') {
@@ -48,33 +61,52 @@ $(document).ready(function () {
 					
 					var tr = $('<tr>');
 					tr.append( $('<td>').text(exec.token) );
-					tr.append( $('<td>').text(exec.key) );
+					tr.append( $('<td>').append( $('<a>').attr('href', 'token.html?token=' + exec.token + '&key=' + exec.key).text(exec.key) ) );
 					tr.append( $('<td>').text(exec.executionTime) );
 					tr.append( $('<td>').text(exec.timestamp) );
 					_tbody.append(tr);
 				}
 				
 			};
-			/*
-			// Using MongoDB
-			$.ajax({
-				type: 'GET',
-				url: 'http://localhost:4000/api/execs/token/' + token,
-				dataType: 'jsonp',
-				success: successCallback
-			}).fail(function (jqXHR, textStatus, errorThrown) {
-				console.error(textStatus + ' AJAX fail: ' + errorThrown);
-			});
-			*/
-			// Using Elasticsearch
-			$.ajax({
-				type: 'GET',
-				url: 'http://localhost:4000/api/execs/search/' + token,
-				dataType: 'jsonp',
-				success: successCallback
-			}).fail(function (jqXHR, textStatus, errorThrown) {
-				console.error(textStatus + ' AJAX fail: ' + errorThrown);
-			});
+			
+			if (key !== '') {
+				
+				// Using MongoDB
+				$.ajax({
+					type: 'GET',
+					url: 'http://localhost:4000/api/execs/token/' + token + '/key/' + key,
+					dataType: 'jsonp',
+					success: successCallback
+				}).fail(function (jqXHR, textStatus, errorThrown) {
+					console.error(textStatus + ' AJAX fail: ' + errorThrown);
+				});
+				
+			}
+			else {
+				
+				/*
+				// Using MongoDB
+				$.ajax({
+					type: 'GET',
+					url: 'http://localhost:4000/api/execs/token/' + token,
+					dataType: 'jsonp',
+					success: successCallback
+				}).fail(function (jqXHR, textStatus, errorThrown) {
+					console.error(textStatus + ' AJAX fail: ' + errorThrown);
+				});
+				*/
+				
+				// Using Elasticsearch
+				$.ajax({
+					type: 'GET',
+					url: 'http://localhost:4000/api/execs/search/' + token,
+					dataType: 'jsonp',
+					success: successCallback
+				}).fail(function (jqXHR, textStatus, errorThrown) {
+					console.error(textStatus + ' AJAX fail: ' + errorThrown);
+				});
+				
+			}
 			
 		} else {
 			console.log('Error, should be a token to search for!');
@@ -95,38 +127,36 @@ $(document).ready(function () {
 			$.ajax({
 				type: 'POST',
 				url: 'http://localhost:4000/api/execs',
-				data: {
-					'token': token,
-					'key': key,
-					'executionTime': execTime
-				}
-			}).done(function (data) {
-				
-				console.log('done!');
-				console.log(data);
-				
+				data: { 'token': token, 'key': key, 'executionTime': execTime }
+			}).done(function () {
+				console.log('data added!');
 			}).fail(function (jqXHR, textStatus, errorThrown) {
 				console.error(textStatus + ' AJAX fail: ' + errorThrown);
 			});
 			
 		});
 		
-		var dateFrom = '2014-11-04T06:26:37.492Z';
-		var dateTo = '2014-11-05T06:26:37.492Z';
-		$.ajax({
-			type: 'GET',
-			url: 'http://localhost:4000/api/execs/search/activity/' + dateFrom + '/' + dateTo,
-			dataType: 'jsonp'
-		}).done(function (execs) {
+		var oldDate = new Date('1970-01-01');
+		var currDate = new Date('1970-01-01');
+		var getActivity = function (ajaxActivitySuccess) {
 			
-			console.log('activity!');
-			console.log(execs);
+			//oldDate = currDate;
+			oldDate = new Date('1970-01-01');
+			currDate = new Date();
+			var dateFrom = oldDate.toJSON();
+			var dateTo = currDate.toJSON();
+			//var dateFrom = '2014-11-04T06:26:37.492Z';
+			//var dateTo = '2014-11-05T06:26:37.492Z';
 			
-		}).fail(function (jqXHR, textStatus, errorThrown) {
-			console.error(textStatus + ' AJAX fail: ' + errorThrown);
-		});
-		
-		
+			$.ajax({
+				type: 'GET',
+				url: 'http://localhost:4000/api/execs/search/activity/' + dateFrom + '/' + dateTo,
+				dataType: 'jsonp',
+				success: ajaxActivitySuccess
+			}).fail(function (jqXHR, textStatus, errorThrown) {
+				console.error(textStatus + ' AJAX fail: ' + errorThrown);
+			});
+		};
 		
 		Highcharts.setOptions({
 			global: { useUTC: false }
@@ -142,9 +172,15 @@ $(document).ready(function () {
 						// set up the updating of the chart each second
 						var series = this.series[0];
 						setInterval(function () {
-							var x = (new Date()).getTime(), // current time
-								y = Math.random();
-							series.addPoint([x, y], true, true);
+							var ajaxActivitySuccess = function (execs) {
+								console.log('ajaxActivitySuccess:' + execs.length);
+								for (var i = 0; i < execs.length; i++) {
+									var x = ( new Date(execs[i].timestamp) ).getTime();
+									var y = execs[i].executionTime;
+									series.addPoint([x, y], true, true);
+								}
+							};
+							getActivity(ajaxActivitySuccess);
 						}, 1000);
 					}
 				}
@@ -170,16 +206,21 @@ $(document).ready(function () {
 			series: [{
 				name: 'Kodemon activity',
 				data: (function () {
-					// generate an array of random data
 					var data = [];
-					var time = (new Date()).getTime();
-					for (var i = -19; i <= 0; i += 1) {
-						data.push({
-							x: time + i * 1000,
-							y: Math.random()
-						});
-					}
-					return data;
+					var ajaxActivitySuccess = function (execs) {
+						for (var i = 0; i < execs.length; i++) {
+							var exec = execs[i];
+							data.push({
+								x: ( new Date(exec.timestamp) ).getTime(),
+								y: exec.executionTime
+							});
+						}
+						console.log('ajaxActivitySuccess ' + execs.length + ':' + data.length);
+					};
+					$.when(getActivity(ajaxActivitySuccess)).done(function () {
+						console.log('return: ' + data.length);
+						return data;
+					});
 				}())
 			}]
 		});

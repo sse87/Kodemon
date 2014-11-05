@@ -112,15 +112,33 @@ app.get('/api/execs/tokens', function (req, res) {
 // curl http://localhost:4000/api/execs/token/[token]
 app.get('/api/execs/token/:token', function (req, res) {
 	var token = req.params.token;
-	Exec.find({ token: token }, function (err, execs) {
+	Exec.find({ 'token': token }, function (err, execs) {
 		if (err) {
 			res.status(500).send('Try again later' + '\n');
 		}
-		else if (execs.length === 0) {
+		/*else if (execs.length === 0) {
 			res.status(404).send('No executions found with token ' + token + '\n');
-		}
+		}*/
 		else {
 			console.log('GET /api/execs/token/' + token);
+			res.jsonp(execs);
+		}
+	});
+});
+
+// curl http://localhost:4000/api/execs/token/[token]/key/[key]
+app.get('/api/execs/token/:token/key/:key', function (req, res) {
+	var token = req.params.token;
+	var key = req.params.key;
+	Exec.find({ 'token': token, 'key': key }, function (err, execs) {
+		if (err) {
+			res.status(500).send('Try again later' + '\n');
+		}
+		/*else if (execs.length === 0) {
+			res.status(404).send('No executions found with token ' + token + ' and key ' + key + '\n');
+		}*/
+		else {
+			console.log('GET /api/execs/token/' + token + '/key/' + key);
 			res.jsonp(execs);
 		}
 	});
@@ -168,6 +186,60 @@ app.get('/api/execs/search/:token', function (req, res) {
 	});
 	
 });
+
+// broken
+// curl http://localhost:4000/api/execs/search/siggi/asdf -H "Content-Type: application/json"
+app.get('/api/execs/search/:token/:key', function (req, res) {
+	//console.log(req.body);
+	//var searchString = req.body.search || '';
+	var token = req.params.token;
+	var key = req.params.key;
+	// making elasticsearch query
+	client.search({
+		'index': 'execs',
+		'doc_type': 'exec',
+		'body': {
+			'and': [{
+				'query': {
+					'match': {
+						'token': token
+					}
+				}
+			},{
+				'query': {
+					'match': {
+						'key': key
+					}
+				}
+			}]
+		}
+	}, function (err, response) {
+		if (err) {
+			res.status(500).send('Try again later' + '\n');
+		}/*
+		else if (response.hits.total === 0) {
+			res.status(404).send('No executions found with token ' + token + '\n');
+		}*/
+		else {
+			// build it with clean data
+			var hits = response.hits.hits;
+			var execs = [];
+			for (var i = 0; i < hits.length; i++) {
+				execs.push({
+					id: hits[i]._id,
+					token: hits[i]._source.token,
+					key: hits[i]._source.key,
+					executionTime: hits[i]._source.executionTime,
+					timestamp: hits[i]._source.timestamp
+				});
+			}
+			console.log('search was made and found ' + execs.length + ' executions with token: "' + token + '"');
+			res.jsonp(execs);
+		}
+	});
+	
+});
+
 
 app.get('/api/execs/search/:token/range/:from/:to', function (req, res) {
 	var token = req.params.token;
